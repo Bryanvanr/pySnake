@@ -4,12 +4,12 @@ import random
 
 # Bot settings etc
 import bot
-ai_pos = [650, 400]
-ai_body = [[650, 400], [660, 400], [670, 400]]
-ai_dir = 'LEFT'
-ai_alive = True
-ai_respawn_timer = 0
-respawn_delay = 180  # 3 seconds at 60 FPS
+# Init multiple bots
+bots = [
+    bot.Bot([650, 400]),
+    bot.Bot([400, 300]),
+    bot.Bot([300, 100])
+]
 
 s_speed = 10
 window_x = 720
@@ -96,20 +96,9 @@ while True:
             elif event.key in (pygame.K_RIGHT, pygame.K_d):
                 change_to = 'RIGHT'
 
-    # Update bot pos and movement
-    if ai_alive:
-        ai_dir = bot.get_ai_direction(ai_pos, ai_dir, food_list[0] if food_list else [0, 0])
-        ai_pos = bot.bot_movement_update(ai_dir, ai_pos)
-        
-    # Bot respawn logic
-    if not ai_alive:
-        ai_respawn_timer -= 1
-        if ai_respawn_timer <= 0:
-            ai_pos = [650, 400]
-            ai_body = [[650, 400], [660, 400], [670, 400]]
-            ai_dir = 'LEFT'
-            ai_alive = True
-
+    # Update bots
+    for b in bots:
+        b.update(food_list)
 
     # Update player direction and movement
     dir = s_pos_update(dir)
@@ -127,17 +116,6 @@ while True:
     if not player_ate:
         s_body.pop()
 
-    # --- AI eats food ---
-    ai_body.insert(0, list(ai_pos))
-    ai_ate = False
-    for food in food_list:
-        if ai_pos == food:
-            food_list.remove(food)
-            ai_ate = True
-            break
-    if not ai_ate:
-        ai_body.pop()
-
     # --- Ensure food is present ---
     if len(food_list) < 1:
         food_list.append(spawn_food())
@@ -148,9 +126,10 @@ while True:
     for pos in s_body:
         pygame.draw.rect(g_window, green, pygame.Rect(pos[0], pos[1], 10, 10))
 
-    # Draw AI
-    for pos in ai_body:
-        pygame.draw.rect(g_window, blue, pygame.Rect(pos[0], pos[1], 10, 10))
+    # Draw all bots
+    for b in bots:
+        for part in b.body:
+            pygame.draw.rect(g_window, blue, pygame.Rect(part[0], part[1], 10, 10))
 
     # Draw food
     for food in food_list:
@@ -165,33 +144,21 @@ while True:
         if s_pos == block:
             g_over()
 
-    # Player hits bot
-    for block in ai_body:
-        if s_pos == block:
-            print("Player hit AI!")
-            g_over()
+    # Player hits any bot
+    for b in bots:
+        for part in b.body:
+            if s_pos == part:
+                g_over()
 
-    # bot hits player
-    for block in s_body:
-        if ai_pos == block:
-            print("AI crashed into Player!")
-
-            # Turn bot body into food
-            for part in ai_body:
-                food_list.append(part)
-
-            # Mark bot as dead
-            ai_alive = False
-            ai_respawn_timer = respawn_delay
-            ai_body = []
-            ai_pos = [-100, -100]
-            ai_dir = 'LEFT'
-            break
+    # Bot hits player
+    for b in bots:
+        if b.alive and b.pos in s_body:
+            food_list.extend(b.die())
 
     # Head-on collision
-    if s_pos == ai_pos:
-        print("Head-on collision!")
-        g_over()
+    for b in bots:
+        if b.alive and b.pos == s_pos:
+            g_over()
 
     show_score(1, white, 'times new roman', 20)
     pygame.display.update()
