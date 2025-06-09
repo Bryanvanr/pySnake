@@ -1,6 +1,7 @@
-# bot.py
-
 import random
+
+window_x = 720
+window_y = 480
 
 class Bot:
     def __init__(self, start_pos):
@@ -16,34 +17,60 @@ class Bot:
         self.respawn_timer = 0
         self.respawn_delay = 180
 
-    def get_direction(self, food_pos):
-        ax, ay = self.pos
+    def pos_in_direction(self, direction):
+        x, y = self.pos
+        if direction == 'UP':
+            return [x, y - 10]
+        if direction == 'DOWN':
+            return [x, y + 10]
+        if direction == 'LEFT':
+            return [x - 10, y]
+        if direction == 'RIGHT':
+            return [x + 10, y]
+
+    def get_safe_directions(self, avoid):
+        directions = ['UP', 'DOWN', 'LEFT', 'RIGHT']
+        safe = []
+        for d in directions:
+            new_pos = self.pos_in_direction(d)
+            # Stay in bounds
+            if new_pos[0] < 0 or new_pos[0] >= window_x or new_pos[1] < 0 or new_pos[1] >= window_y:
+                continue
+            # Avoid collisions
+            if tuple(new_pos) in avoid:
+                continue
+            safe.append(d)
+        return safe
+
+    def get_direction(self, food_pos, avoid):
+        safe_dirs = self.get_safe_directions(avoid)
+
+        # Simple pathfinding: prefer safe directions toward food
         fx, fy = food_pos
-        new_dir = self.dir
+        ax, ay = self.pos
+        prioritized = []
 
-        # Prefer horizontal moves
-        if ax < fx and self.dir != 'LEFT':
-            new_dir = 'RIGHT'
-        elif ax > fx and self.dir != 'RIGHT':
-            new_dir = 'LEFT'
-        elif ay < fy and self.dir != 'UP':
-            new_dir = 'DOWN'
-        elif ay > fy and self.dir != 'DOWN':
-            new_dir = 'UP'
+        if ax < fx and 'RIGHT' in safe_dirs:
+            prioritized.append('RIGHT')
+        if ax > fx and 'LEFT' in safe_dirs:
+            prioritized.append('LEFT')
+        if ay < fy and 'DOWN' in safe_dirs:
+            prioritized.append('DOWN')
+        if ay > fy and 'UP' in safe_dirs:
+            prioritized.append('UP')
 
-        self.dir = new_dir
+        for d in prioritized:
+            return d
+
+        if safe_dirs:
+            return random.choice(safe_dirs)
+
+        return self.dir  # No safe move, continue current dir
 
     def move(self):
-        if self.dir == 'UP':
-            self.pos[1] -= 10
-        elif self.dir == 'DOWN':
-            self.pos[1] += 10
-        elif self.dir == 'LEFT':
-            self.pos[0] -= 10
-        elif self.dir == 'RIGHT':
-            self.pos[0] += 10
+        self.pos = self.pos_in_direction(self.dir)
 
-    def update(self, food_list):
+    def update(self, food_list, all_bots, player_body):
         if not self.alive:
             self.respawn_timer -= 1
             if self.respawn_timer <= 0:
@@ -53,10 +80,18 @@ class Bot:
         if not food_list:
             return
 
-        self.get_direction(food_list[0])
+        # Create set of positions to avoid
+        avoid = set()
+        avoid.update(tuple(pos) for pos in self.body[1:])  # self
+        for b in all_bots:
+            if b is not self:
+                avoid.update(tuple(pos) for pos in b.body)
+        avoid.update(tuple(pos) for pos in player_body)
+
+        # Decide direction and move
+        self.dir = self.get_direction(food_list[0], avoid)
         self.move()
 
-        # Eat food or move forward
         self.body.insert(0, list(self.pos))
         if self.pos in food_list:
             food_list.remove(self.pos)

@@ -93,12 +93,10 @@ def check_bot_collisions(bots, food_list):
                 continue
             # Bot head hits other bot body
             if b1.pos in b2.body:
-                print(f"Bot collided with another bot!")
                 food_list.extend(b1.die())
                 break
             # Head-on collision between bots
             if b1.pos == b2.pos:
-                print("Bots collided head-on!")
                 food_list.extend(b1.die())
                 food_list.extend(b2.die())
 
@@ -118,7 +116,7 @@ while True:
 
     # Update bots
     for b in bots:
-        b.update(food_list)
+        b.update(food_list, bots, s_body)
 
     # Update player direction and movement
     dir = s_pos_update(dir)
