@@ -83,6 +83,26 @@ def s_movement_update(dir):
         s_pos[0] += 10
     return s_pos
 
+# Bot on Bot collision check
+def check_bot_collisions(bots, food_list):
+    for b1 in bots:
+        if not b1.alive:
+            continue
+        for b2 in bots:
+            if b1 == b2 or not b2.alive:
+                continue
+            # Bot head hits other bot body
+            if b1.pos in b2.body:
+                print(f"Bot collided with another bot!")
+                food_list.extend(b1.die())
+                break
+            # Head-on collision between bots
+            if b1.pos == b2.pos:
+                print("Bots collided head-on!")
+                food_list.extend(b1.die())
+                food_list.extend(b2.die())
+
+
 # Main loop
 while True:
     for event in pygame.event.get():
@@ -154,6 +174,9 @@ while True:
     for b in bots:
         if b.alive and b.pos in s_body:
             food_list.extend(b.die())
+    
+    # Check bot on bot collision      
+    check_bot_collisions(bots, food_list)
 
     # Head-on collision
     for b in bots:
