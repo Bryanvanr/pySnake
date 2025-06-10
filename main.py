@@ -87,7 +87,71 @@ def check_bot_collisions(bots, food_list):
             if b1.pos == b2.pos:
                 food_list.extend(b1.die())
                 food_list.extend(b2.die())
-                
+
+# Input handling
+def handle_input():
+    global change_to
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            pygame.quit()
+            quit()
+        if event.type == pygame.KEYDOWN:
+            key_map = {
+                pygame.K_UP: 'UP', pygame.K_w: 'UP',
+                pygame.K_DOWN: 'DOWN', pygame.K_s: 'DOWN',
+                pygame.K_LEFT: 'LEFT', pygame.K_a: 'LEFT',
+                pygame.K_RIGHT: 'RIGHT', pygame.K_d: 'RIGHT',
+            }
+            change_to = key_map.get(event.key, change_to)
+# Bot update logic
+def update_bots():
+    for b in bots:
+        b.update(food_list, bots, s_body)
+
+# Player movement/eating
+def update_player():
+    global dir, s_pos, score
+    dir = s_pos_update(dir)
+    s_pos = s_movement_update(dir)
+
+    s_body.insert(0, list(s_pos))
+
+    for food in food_list:
+        if s_pos == food:
+            score += 10
+            food_list.remove(food)
+            return
+    s_body.pop()
+
+# Draw game objects
+def draw_elements():
+    g_window.fill(black)
+    for pos in s_body:
+        pygame.draw.rect(g_window, green, pygame.Rect(pos[0], pos[1], 10, 10))
+
+    for b in bots:
+        for part in b.body:
+            pygame.draw.rect(g_window, blue, pygame.Rect(part[0], part[1], 10, 10))
+
+    for food in food_list:
+        pygame.draw.rect(g_window, white, pygame.Rect(food[0], food[1], 10, 10))
+
+# Game over condition check
+def check_game_over():
+    if s_pos[0] < 0 or s_pos[0] > window_x - 10 or s_pos[1] < 0 or s_pos[1] > window_y - 10:
+        return True
+    if s_pos in s_body[1:]:
+        return True
+    for b in bots:
+        if s_pos in b.body:
+            return True
+        if b.alive and b.pos in s_body:
+            food_list.extend(b.die())
+        if b.alive and b.pos == s_pos:
+            return True
+    check_bot_collisions(bots, food_list)
+    return False
+
 # Game over screen
 def show_game_over():
     font = pygame.font.SysFont('times new roman', 50)
@@ -125,7 +189,7 @@ def show_game_over():
 def main_game_loop():
     global s_pos, s_body, dir, change_to, score, food_list, bots
 
-    # Reset game variables
+    # Reset state
     s_pos = [50, 50]
     s_body = [[50, 50], [40, 50], [30, 50]]
     dir = 'RIGHT'
@@ -135,77 +199,18 @@ def main_game_loop():
     bots = [bot.Bot([650, 400]), bot.Bot([400, 300]), bot.Bot([300, 100])]
 
     while True:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                quit()
-            if event.type == pygame.KEYDOWN:
-                if event.key in (pygame.K_UP, pygame.K_w):
-                    change_to = 'UP'
-                elif event.key in (pygame.K_DOWN, pygame.K_s):
-                    change_to = 'DOWN'
-                elif event.key in (pygame.K_LEFT, pygame.K_a):
-                    change_to = 'LEFT'
-                elif event.key in (pygame.K_RIGHT, pygame.K_d):
-                    change_to = 'RIGHT'
-
-        for b in bots:
-            b.update(food_list, bots, s_body)
-
-        dir = s_pos_update(dir)
-        s_pos = s_movement_update(dir)
-
-        s_body.insert(0, list(s_pos))
-        player_ate = False
-        for food in food_list:
-            if s_pos == food:
-                score += 10
-                food_list.remove(food)
-                player_ate = True
-                break
-        if not player_ate:
-            s_body.pop()
+        handle_input()
+        update_bots()
+        update_player()
 
         if len(food_list) < 1:
             food_list.append(spawn_food())
 
-        g_window.fill(black)
+        draw_elements()
 
-        for pos in s_body:
-            pygame.draw.rect(g_window, green, pygame.Rect(pos[0], pos[1], 10, 10))
-
-        for b in bots:
-            for part in b.body:
-                pygame.draw.rect(g_window, blue, pygame.Rect(part[0], part[1], 10, 10))
-
-        for food in food_list:
-            pygame.draw.rect(g_window, white, pygame.Rect(food[0], food[1], 10, 10))
-
-        if s_pos[0] < 0 or s_pos[0] > window_x - 10 or s_pos[1] < 0 or s_pos[1] > window_y - 10:
+        if check_game_over():
             show_game_over()
             return
-
-        for block in s_body[1:]:
-            if s_pos == block:
-                show_game_over()
-                return
-
-        for b in bots:
-            for part in b.body:
-                if s_pos == part:
-                    show_game_over()
-                    return
-
-        for b in bots:
-            if b.alive and b.pos in s_body:
-                food_list.extend(b.die())
-
-        check_bot_collisions(bots, food_list)
-
-        for b in bots:
-            if b.alive and b.pos == s_pos:
-                show_game_over()
-                return
 
         show_score(1, white, 'times new roman', 20)
         pygame.display.update()
