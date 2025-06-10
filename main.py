@@ -46,19 +46,7 @@ def show_score(choice, color, font, size):
     score_surface = score_font.render('Score : ' + str(score), True, color)
     score_rect = score_surface.get_rect()
     g_window.blit(score_surface, score_rect)
-
-# Game over function
-def g_over():
-    font = pygame.font.SysFont('times new roman', 50)
-    g_over_surface = font.render('Score : ' + str(score), True, red)
-    g_over_rect = g_over_surface.get_rect()
-    g_over_rect.midtop = (window_x / 2, window_y / 4)
-    g_window.blit(g_over_surface, g_over_rect)
-    pygame.display.flip()
-    time.sleep(3)
-    pygame.quit()
-    quit()
-
+    
 # Update player direction
 def s_pos_update(dir):
     if change_to == 'UP' and dir != 'DOWN':
@@ -99,88 +87,131 @@ def check_bot_collisions(bots, food_list):
             if b1.pos == b2.pos:
                 food_list.extend(b1.die())
                 food_list.extend(b2.die())
+                
+# Game over screen
+def show_game_over():
+    font = pygame.font.SysFont('times new roman', 50)
+    g_window.fill(black)
+    game_over_surface = font.render('Game Over', True, red)
+    game_over_rect = game_over_surface.get_rect(center=(window_x / 2, window_y / 4))
+    g_window.blit(game_over_surface, game_over_rect)
+
+    score_surface = font.render('Score: ' + str(score), True, white)
+    score_rect = score_surface.get_rect(center=(window_x / 2, window_y / 2))
+    g_window.blit(score_surface, score_rect)
+
+    restart_surface = pygame.font.SysFont('times new roman', 30).render('Press R to Restart or Q to Quit', True, white)
+    restart_rect = restart_surface.get_rect(center=(window_x / 2, window_y * 3 / 4))
+    g_window.blit(restart_surface, restart_rect)
+
+    pygame.display.flip()
+
+    # Wait for player input
+    waiting = True
+    while waiting:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                quit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_r:
+                    waiting = False
+                elif event.key == pygame.K_q:
+                    pygame.quit()
+                    quit()
 
 
 # Main loop
-while True:
-    for event in pygame.event.get():
-        if event.type == pygame.KEYDOWN:
-            if event.key in (pygame.K_UP, pygame.K_w):
-                change_to = 'UP'
-            elif event.key in (pygame.K_DOWN, pygame.K_s):
-                change_to = 'DOWN'
-            elif event.key in (pygame.K_LEFT, pygame.K_a):
-                change_to = 'LEFT'
-            elif event.key in (pygame.K_RIGHT, pygame.K_d):
-                change_to = 'RIGHT'
+def main_game_loop():
+    global s_pos, s_body, dir, change_to, score, food_list, bots
 
-    # Update bots
-    for b in bots:
-        b.update(food_list, bots, s_body)
+    # Reset game variables
+    s_pos = [50, 50]
+    s_body = [[50, 50], [40, 50], [30, 50]]
+    dir = 'RIGHT'
+    change_to = dir
+    score = 0
+    food_list = [spawn_food()]
+    bots = [bot.Bot([650, 400]), bot.Bot([400, 300]), bot.Bot([300, 100])]
 
-    # Update player direction and movement
-    dir = s_pos_update(dir)
-    s_pos = s_movement_update(dir)
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                quit()
+            if event.type == pygame.KEYDOWN:
+                if event.key in (pygame.K_UP, pygame.K_w):
+                    change_to = 'UP'
+                elif event.key in (pygame.K_DOWN, pygame.K_s):
+                    change_to = 'DOWN'
+                elif event.key in (pygame.K_LEFT, pygame.K_a):
+                    change_to = 'LEFT'
+                elif event.key in (pygame.K_RIGHT, pygame.K_d):
+                    change_to = 'RIGHT'
 
-    # --- Player eats food ---
-    s_body.insert(0, list(s_pos))
-    player_ate = False
-    for food in food_list:
-        if s_pos == food:
-            score += 10
-            food_list.remove(food)
-            player_ate = True
-            break
-    if not player_ate:
-        s_body.pop()
+        for b in bots:
+            b.update(food_list, bots, s_body)
 
-    # --- Ensure food is present ---
-    if len(food_list) < 1:
-        food_list.append(spawn_food())
+        dir = s_pos_update(dir)
+        s_pos = s_movement_update(dir)
 
-    g_window.fill(black)
+        s_body.insert(0, list(s_pos))
+        player_ate = False
+        for food in food_list:
+            if s_pos == food:
+                score += 10
+                food_list.remove(food)
+                player_ate = True
+                break
+        if not player_ate:
+            s_body.pop()
 
-    # Draw player
-    for pos in s_body:
-        pygame.draw.rect(g_window, green, pygame.Rect(pos[0], pos[1], 10, 10))
+        if len(food_list) < 1:
+            food_list.append(spawn_food())
 
-    # Draw all bots
-    for b in bots:
-        for part in b.body:
-            pygame.draw.rect(g_window, blue, pygame.Rect(part[0], part[1], 10, 10))
+        g_window.fill(black)
 
-    # Draw food
-    for food in food_list:
-        pygame.draw.rect(g_window, white, pygame.Rect(food[0], food[1], 10, 10))
+        for pos in s_body:
+            pygame.draw.rect(g_window, green, pygame.Rect(pos[0], pos[1], 10, 10))
 
-    # Wall collisions
-    if s_pos[0] < 0 or s_pos[0] > window_x - 10 or s_pos[1] < 0 or s_pos[1] > window_y - 10:
-        g_over()
+        for b in bots:
+            for part in b.body:
+                pygame.draw.rect(g_window, blue, pygame.Rect(part[0], part[1], 10, 10))
 
-    # Player self-collision
-    for block in s_body[1:]:
-        if s_pos == block:
-            g_over()
+        for food in food_list:
+            pygame.draw.rect(g_window, white, pygame.Rect(food[0], food[1], 10, 10))
 
-    # Player hits any bot
-    for b in bots:
-        for part in b.body:
-            if s_pos == part:
-                g_over()
+        if s_pos[0] < 0 or s_pos[0] > window_x - 10 or s_pos[1] < 0 or s_pos[1] > window_y - 10:
+            show_game_over()
+            return
 
-    # Bot hits player
-    for b in bots:
-        if b.alive and b.pos in s_body:
-            food_list.extend(b.die())
-    
-    # Check bot on bot collision      
-    check_bot_collisions(bots, food_list)
+        for block in s_body[1:]:
+            if s_pos == block:
+                show_game_over()
+                return
 
-    # Head-on collision
-    for b in bots:
-        if b.alive and b.pos == s_pos:
-            g_over()
+        for b in bots:
+            for part in b.body:
+                if s_pos == part:
+                    show_game_over()
+                    return
 
-    show_score(1, white, 'times new roman', 20)
-    pygame.display.update()
-    fps.tick(s_speed)
+        for b in bots:
+            if b.alive and b.pos in s_body:
+                food_list.extend(b.die())
+
+        check_bot_collisions(bots, food_list)
+
+        for b in bots:
+            if b.alive and b.pos == s_pos:
+                show_game_over()
+                return
+
+        show_score(1, white, 'times new roman', 20)
+        pygame.display.update()
+        fps.tick(s_speed)
+
+# Start the script
+if __name__ == "__main__":
+    while True:
+        main_game_loop()
