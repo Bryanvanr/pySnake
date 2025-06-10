@@ -45,11 +45,16 @@ class Bot:
     def get_direction(self, food_pos, avoid):
         safe_dirs = self.get_safe_directions(avoid)
 
-        # Simple pathfinding: prefer safe directions toward food
         fx, fy = food_pos
         ax, ay = self.pos
         prioritized = []
 
+        # # 20% chance to pick a random safe direction
+        # if random.random() < 0.2:
+        #     if safe_dirs:
+        #         return random.choice(safe_dirs)
+
+        # Add directions towards food that are safe
         if ax < fx and 'RIGHT' in safe_dirs:
             prioritized.append('RIGHT')
         if ax > fx and 'LEFT' in safe_dirs:
@@ -59,13 +64,32 @@ class Bot:
         if ay > fy and 'UP' in safe_dirs:
             prioritized.append('UP')
 
-        for d in prioritized:
-            return d
+        # Sometimes go for food even if that direction is NOT in safe_dirs
+        # Check directions towards food regardless of safe_dirs
+        risky_prioritized = []
+        if ax < fx and 'RIGHT' not in safe_dirs:
+            risky_prioritized.append('RIGHT')
+        if ax > fx and 'LEFT' not in safe_dirs:
+            risky_prioritized.append('LEFT')
+        if ay < fy and 'DOWN' not in safe_dirs:
+            risky_prioritized.append('DOWN')
+        if ay > fy and 'UP' not in safe_dirs:
+            risky_prioritized.append('UP')
 
+        # 70% chance pick a prioritized safe direction
+        if prioritized and random.random() < 0.7:
+            return prioritized[0]
+
+        #30% chance pick a risky direction (towards food but unsafe)
+        if risky_prioritized and random.random() < 0.3:
+            return risky_prioritized[0]
+
+        # If no bias hit, fallback to random safe direction
         if safe_dirs:
             return random.choice(safe_dirs)
 
-        return self.dir  # No safe move, continue current dir
+        return self.dir  # no safe moves, keep going current way
+
 
     def move(self):
         self.pos = self.pos_in_direction(self.dir)
@@ -88,15 +112,19 @@ class Bot:
                 avoid.update(tuple(pos) for pos in b.body)
         avoid.update(tuple(pos) for pos in player_body)
 
+        if random.random() < 0.2:  # 20% chance to not update direction
+            pass  # Keep current direction
+        
         # Decide direction and move
-        self.dir = self.get_direction(food_list[0], avoid)
-        self.move()
+        else: 
+            self.dir = self.get_direction(food_list[0], avoid)
+            self.move()
 
-        self.body.insert(0, list(self.pos))
-        if self.pos in food_list:
-            food_list.remove(self.pos)
-        else:
-            self.body.pop()
+            self.body.insert(0, list(self.pos))
+            if self.pos in food_list:
+                food_list.remove(self.pos)
+            else:
+                self.body.pop()
 
     def die(self):
         self.alive = False
